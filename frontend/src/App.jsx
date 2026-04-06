@@ -1,6 +1,6 @@
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState, createContext, useContext } from 'react'
+import { useState, createContext, useContext, useEffect } from 'react'
 
 const queryClient = new QueryClient()
 
@@ -26,6 +26,23 @@ function AuthProvider({ children }) {
 }
 
 function useAuth() { return useContext(AuthContext) }
+
+// --- Dark mode hook ---
+function useDarkMode() {
+  const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
+
+  useEffect(() => {
+    if (dark) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }, [dark])
+
+  return [dark, setDark]
+}
 
 // --- API helpers ---
 const API = '/api'
@@ -55,9 +72,27 @@ export default function App() {
   )
 }
 
+function NavLink({ to, children }) {
+  const { pathname } = useLocation()
+  const active = pathname === to
+  return (
+    <Link
+      to={to}
+      className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${
+        active
+          ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-500'
+      }`}
+    >
+      {children}
+    </Link>
+  )
+}
+
 function AppShell() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [dark, setDark] = useDarkMode()
 
   function handleLogout() {
     logout()
@@ -65,32 +100,48 @@ function AppShell() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
-      <nav className="bg-white shadow">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans text-gray-900 dark:text-gray-100 transition-colors">
+      <nav className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex space-x-8">
               <div className="flex-shrink-0 flex items-center">
-                <span className="text-2xl font-bold text-indigo-600">RentalApp</span>
+                <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">RentalApp</span>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                <Link to="/" className="text-gray-900 border-indigo-500 border-b-2 inline-flex items-center px-1 pt-1 text-sm font-medium">Home</Link>
-                <Link to="/listings" className="text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium">Listings</Link>
-                {user?.role === 'OWNER' && (
-                  <Link to="/my-listings" className="text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium">My Properties</Link>
-                )}
+                <NavLink to="/">Home</NavLink>
+                <NavLink to="/listings">Listings</NavLink>
+                {user?.role === 'OWNER' && <NavLink to="/my-listings">My Properties</NavLink>}
               </div>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:items-center space-x-3">
+              <button
+                onClick={() => setDark(d => !d)}
+                className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                aria-label="Toggle dark mode"
+              >
+                {dark ? '☀️' : '🌙'}
+              </button>
               {user ? (
                 <>
-                  <span className="text-sm text-gray-600">{user.email} <span className="text-xs text-indigo-500 font-medium">({user.role})</span></span>
-                  <button onClick={handleLogout} className="text-gray-500 border border-gray-300 p-2 rounded-md text-sm hover:bg-gray-50 px-4">Log out</button>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    {user.email} <span className="text-xs text-indigo-500 font-medium">({user.role})</span>
+                  </span>
+                  <button onClick={handleLogout}
+                    className="text-gray-500 dark:text-gray-300 border border-gray-300 dark:border-gray-600 p-2 rounded-md text-sm hover:bg-gray-50 dark:hover:bg-gray-800 px-4 transition-colors">
+                    Log out
+                  </button>
                 </>
               ) : (
                 <>
-                  <Link to="/register" className="text-indigo-600 border border-indigo-600 p-2 rounded-md font-medium hover:bg-indigo-50 px-4 text-sm">Sign up</Link>
-                  <Link to="/login" className="bg-indigo-600 p-2 rounded-md text-white font-medium hover:bg-indigo-700 px-4 text-sm">Log in</Link>
+                  <Link to="/register"
+                    className="text-indigo-600 dark:text-indigo-400 border border-indigo-600 dark:border-indigo-400 p-2 rounded-md font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/30 px-4 text-sm transition-colors">
+                    Sign up
+                  </Link>
+                  <Link to="/login"
+                    className="bg-indigo-600 hover:bg-indigo-700 p-2 rounded-md text-white font-medium px-4 text-sm transition-colors">
+                    Log in
+                  </Link>
                 </>
               )}
             </div>
@@ -117,20 +168,50 @@ function Home() {
   const { user } = useAuth()
   return (
     <div className="text-center mt-20">
-      <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl md:text-6xl">
+      <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl">
         <span className="block xl:inline">Find your next</span>{' '}
-        <span className="block text-indigo-600 xl:inline">dream home</span>
+        <span className="block text-indigo-600 dark:text-indigo-400 xl:inline">dream home</span>
       </h1>
-      <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
+      <p className="mt-3 max-w-md mx-auto text-base text-gray-500 dark:text-gray-400 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
         The microservices-powered platform for renting properties around the globe.
       </p>
       <div className="mt-8 flex justify-center gap-4">
-        <Link to="/listings" className="bg-indigo-600 text-white px-6 py-3 rounded-md font-medium hover:bg-indigo-700">Browse listings</Link>
-        {!user && <Link to="/register" className="border border-indigo-600 text-indigo-600 px-6 py-3 rounded-md font-medium hover:bg-indigo-50">Get started</Link>}
-        {user?.role === 'OWNER' && <Link to="/my-listings" className="border border-indigo-600 text-indigo-600 px-6 py-3 rounded-md font-medium hover:bg-indigo-50">Manage my properties</Link>}
+        <Link to="/listings" className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-colors">
+          Browse listings
+        </Link>
+        {!user && (
+          <Link to="/register" className="border border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 px-6 py-3 rounded-md font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">
+            Get started
+          </Link>
+        )}
+        {user?.role === 'OWNER' && (
+          <Link to="/my-listings" className="border border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 px-6 py-3 rounded-md font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">
+            Manage my properties
+          </Link>
+        )}
       </div>
     </div>
   )
+}
+
+function AuthCard({ title, children }) {
+  return (
+    <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+      <div className="bg-white dark:bg-gray-900 py-8 px-4 shadow sm:rounded-lg sm:px-10 dark:shadow-gray-800">
+        <h2 className="text-center text-3xl font-extrabold mb-6">{title}</h2>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+const inputClass = "mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors"
+const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300"
+const btnPrimary = "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
+
+function ErrorMsg({ msg }) {
+  if (!msg) return null
+  return <div className="mb-4 rounded-md bg-red-50 dark:bg-red-900/30 p-3 text-sm text-red-700 dark:text-red-400">{msg}</div>
 }
 
 function Login() {
@@ -160,32 +241,26 @@ function Login() {
   }
 
   return (
-    <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-      <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-        <h2 className="text-center text-3xl font-extrabold text-gray-900 mb-6">Sign in to your account</h2>
-        {error && <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Email address</label>
-            <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-              className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>
-            <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
-              className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-          </div>
-          <button type="submit" disabled={loading}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
-            {loading ? 'Signing in...' : 'Sign in'}
-          </button>
-        </form>
-        <p className="mt-6 text-center text-sm text-gray-500">
-          No account yet?{' '}
-          <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500">Create one</Link>
-        </p>
-      </div>
-    </div>
+    <AuthCard title="Sign in to your account">
+      <ErrorMsg msg={error} />
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        <div>
+          <label className={labelClass}>Email address</label>
+          <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Password</label>
+          <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className={inputClass} />
+        </div>
+        <button type="submit" disabled={loading} className={btnPrimary}>
+          {loading ? 'Signing in...' : 'Sign in'}
+        </button>
+      </form>
+      <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+        No account yet?{' '}
+        <Link to="/register" className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">Create one</Link>
+      </p>
+    </AuthCard>
   )
 }
 
@@ -217,40 +292,33 @@ function Register() {
   }
 
   return (
-    <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-      <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-        <h2 className="text-center text-3xl font-extrabold text-gray-900 mb-6">Create your account</h2>
-        {error && <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Email address</label>
-            <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-              className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>
-            <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
-              className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">I am a...</label>
-            <select value={role} onChange={e => setRole(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-              <option value="TENANT">Tenant — I'm looking to rent</option>
-              <option value="OWNER">Owner — I want to list my property</option>
-            </select>
-          </div>
-          <button type="submit" disabled={loading}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
-            {loading ? 'Creating account...' : 'Create account'}
-          </button>
-        </form>
-        <p className="mt-6 text-center text-sm text-gray-500">
-          Already have an account?{' '}
-          <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">Sign in</Link>
-        </p>
-      </div>
-    </div>
+    <AuthCard title="Create your account">
+      <ErrorMsg msg={error} />
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        <div>
+          <label className={labelClass}>Email address</label>
+          <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Password</label>
+          <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>I am a...</label>
+          <select value={role} onChange={e => setRole(e.target.value)} className={inputClass}>
+            <option value="TENANT">Tenant — I'm looking to rent</option>
+            <option value="OWNER">Owner — I want to list my property</option>
+          </select>
+        </div>
+        <button type="submit" disabled={loading} className={btnPrimary}>
+          {loading ? 'Creating account...' : 'Create account'}
+        </button>
+      </form>
+      <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+        Already have an account?{' '}
+        <Link to="/login" className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">Sign in</Link>
+      </p>
+    </AuthCard>
   )
 }
 
@@ -265,42 +333,41 @@ function Listings() {
 
   return (
     <div>
-      <h2 className="text-3xl font-extrabold text-gray-900 mb-6">Available Properties</h2>
+      <h2 className="text-3xl font-extrabold mb-6">Available Properties</h2>
       {listings?.length === 0 && (
-        <p className="text-gray-500 text-center mt-12">No properties available at the moment.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-center mt-12">No properties available at the moment.</p>
       )}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {listings?.map(listing => (
-          <ListingCard key={listing.id} listing={listing} />
-        ))}
+        {listings?.map(listing => <ListingCard key={listing.id} listing={listing} />)}
       </div>
     </div>
   )
 }
 
+const typeColors = {
+  APARTMENT: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  HOUSE:     'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+  STUDIO:    'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+  ROOM:      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+}
+
 function ListingCard({ listing }) {
-  const typeColors = {
-    APARTMENT: 'bg-blue-100 text-blue-700',
-    HOUSE: 'bg-green-100 text-green-700',
-    STUDIO: 'bg-purple-100 text-purple-700',
-    ROOM: 'bg-yellow-100 text-yellow-700',
-  }
   return (
-    <div className="bg-white overflow-hidden shadow rounded-lg flex flex-col">
+    <div className="bg-white dark:bg-gray-900 overflow-hidden shadow dark:shadow-gray-800 rounded-lg flex flex-col transition-colors">
       <div className="px-5 py-4 flex-1">
         <div className="flex items-start justify-between mb-2">
-          <h3 className="text-lg font-semibold text-gray-900 leading-tight">{listing.title}</h3>
+          <h3 className="text-lg font-semibold leading-tight">{listing.title}</h3>
           {listing.type && (
             <span className={`ml-2 shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${typeColors[listing.type] || 'bg-gray-100 text-gray-600'}`}>
               {listing.type}
             </span>
           )}
         </div>
-        {listing.location && <p className="text-sm text-gray-500 mb-2">{listing.location}</p>}
-        {listing.description && <p className="text-sm text-gray-600 line-clamp-3">{listing.description}</p>}
+        {listing.location && <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{listing.location}</p>}
+        {listing.description && <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3">{listing.description}</p>}
       </div>
-      <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
-        <span className="text-indigo-600 font-bold text-lg">
+      <div className="px-5 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
+        <span className="text-indigo-600 dark:text-indigo-400 font-bold text-lg">
           {listing.pricePerMonth != null ? `${Number(listing.pricePerMonth).toLocaleString('fr-FR')} €` : '—'}
           <span className="text-sm font-normal text-gray-400"> / month</span>
         </span>
@@ -364,37 +431,34 @@ function OwnerDashboard() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-3xl font-extrabold text-gray-900">My Properties</h2>
+        <h2 className="text-3xl font-extrabold">My Properties</h2>
         <button onClick={() => setShowForm(v => !v)}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
           {showForm ? 'Cancel' : '+ Add property'}
         </button>
       </div>
 
       {showForm && (
-        <div className="bg-white shadow rounded-lg p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">New property</h3>
-          {formError && <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{formError}</div>}
+        <div className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg p-6 mb-8 transition-colors">
+          <h3 className="text-lg font-semibold mb-4">New property</h3>
+          <ErrorMsg msg={formError} />
           <form onSubmit={handleCreate} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Title *</label>
-              <input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <label className={labelClass}>Title *</label>
+              <input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Location</label>
-              <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <label className={labelClass}>Location</label>
+              <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Price per month (€)</label>
-              <input type="number" min="0" step="0.01" value={form.pricePerMonth} onChange={e => setForm(f => ({ ...f, pricePerMonth: e.target.value }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <label className={labelClass}>Price per month (€)</label>
+              <input type="number" min="0" step="0.01" value={form.pricePerMonth}
+                onChange={e => setForm(f => ({ ...f, pricePerMonth: e.target.value }))} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Type</label>
-              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+              <label className={labelClass}>Type</label>
+              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className={inputClass}>
                 <option value="APARTMENT">Apartment</option>
                 <option value="HOUSE">House</option>
                 <option value="STUDIO">Studio</option>
@@ -402,13 +466,13 @@ function OwnerDashboard() {
               </select>
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Description</label>
-              <textarea rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <label className={labelClass}>Description</label>
+              <textarea rows={3} value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className={inputClass} />
             </div>
             <div className="sm:col-span-2 flex justify-end">
               <button type="submit" disabled={createMutation.isPending}
-                className="bg-indigo-600 text-white px-6 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md text-sm font-medium disabled:opacity-50 transition-colors">
                 {createMutation.isPending ? 'Saving...' : 'Save property'}
               </button>
             </div>
@@ -419,30 +483,33 @@ function OwnerDashboard() {
       {isLoading && <div className="text-center text-gray-400">Loading...</div>}
 
       {!isLoading && listings?.length === 0 && (
-        <div className="text-center text-gray-500 mt-12">
+        <div className="text-center text-gray-500 dark:text-gray-400 mt-12">
           <p className="text-lg">You haven't listed any properties yet.</p>
-          <button onClick={() => setShowForm(true)} className="mt-4 text-indigo-600 font-medium hover:underline">Add your first property</button>
+          <button onClick={() => setShowForm(true)} className="mt-4 text-indigo-600 dark:text-indigo-400 font-medium hover:underline">
+            Add your first property
+          </button>
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {listings?.map(listing => (
-          <div key={listing.id} className="bg-white shadow rounded-lg flex flex-col">
+          <div key={listing.id} className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg flex flex-col transition-colors">
             <div className="px-5 py-4 flex-1">
               <div className="flex items-start justify-between mb-1">
-                <h3 className="text-base font-semibold text-gray-900">{listing.title}</h3>
-                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full ml-2 shrink-0">{listing.type}</span>
+                <h3 className="text-base font-semibold">{listing.title}</h3>
+                <span className={`ml-2 shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${typeColors[listing.type] || 'bg-gray-100 text-gray-600'}`}>
+                  {listing.type}
+                </span>
               </div>
-              {listing.location && <p className="text-sm text-gray-500 mb-1">{listing.location}</p>}
-              {listing.description && <p className="text-sm text-gray-600 line-clamp-2">{listing.description}</p>}
+              {listing.location && <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{listing.location}</p>}
+              {listing.description && <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{listing.description}</p>}
             </div>
-            <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-indigo-600 font-bold">
+            <div className="px-5 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <span className="text-indigo-600 dark:text-indigo-400 font-bold">
                 {listing.pricePerMonth != null ? `${Number(listing.pricePerMonth).toLocaleString('fr-FR')} €/mo` : '—'}
               </span>
-              <button onClick={() => deleteMutation.mutate(listing.id)}
-                disabled={deleteMutation.isPending}
-                className="text-red-500 hover:text-red-700 text-sm font-medium disabled:opacity-50">
+              <button onClick={() => deleteMutation.mutate(listing.id)} disabled={deleteMutation.isPending}
+                className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium disabled:opacity-50 transition-colors">
                 Delete
               </button>
             </div>
