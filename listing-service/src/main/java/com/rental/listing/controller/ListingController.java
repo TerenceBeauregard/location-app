@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -19,8 +20,12 @@ public class ListingController {
     private final ListingRepository listingRepository;
 
     @GetMapping
-    public List<Listing> getAvailableListings() {
-        return listingRepository.findByAvailableTrue();
+    public List<Listing> getAvailableListings(
+            @RequestParam(required = false) Listing.ListingType type,
+            @RequestParam(required = false) String location,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice) {
+        return listingRepository.findWithFilters(type, location, minPrice, maxPrice);
     }
 
     @GetMapping("/owner/{ownerId}")
