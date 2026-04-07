@@ -3,7 +3,10 @@ package com.rental.listing.controller;
 import com.rental.listing.dto.ListingRequest;
 import com.rental.listing.entity.Listing;
 import com.rental.listing.repository.ListingRepository;
+import com.rental.listing.specification.ListingSpecifications;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,7 +28,15 @@ public class ListingController {
             @RequestParam(required = false) String location,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice) {
-        return listingRepository.findWithFilters(type, location, minPrice, maxPrice);
+
+        Specification<Listing> spec = Specification
+            .where(ListingSpecifications.isAvailable())
+            .and(ListingSpecifications.hasType(type))
+            .and(ListingSpecifications.locationContains(location))
+            .and(ListingSpecifications.minPrice(minPrice))
+            .and(ListingSpecifications.maxPrice(maxPrice));
+
+        return listingRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 
     @GetMapping("/owner/{ownerId}")
@@ -40,7 +51,7 @@ public class ListingController {
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .location(request.getLocation())
-                .pricePerMonth(request.getPricePerMonth())
+                .pricePerNight(request.getPricePerNight())
                 .type(request.getType())
                 .available(true)
                 .build();

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -61,5 +62,29 @@ public class BookingController {
             bookingRepository.save(b);
         });
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/confirm")
+    public ResponseEntity<?> confirmBooking(@PathVariable UUID id) {
+        Optional<Booking> opt = bookingRepository.findById(id);
+        if (opt.isEmpty()) return ResponseEntity.notFound().build();
+        Booking b = opt.get();
+        b.setStatus(Booking.BookingStatus.CONFIRMED);
+        return ResponseEntity.ok(bookingRepository.save(b));
+    }
+
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<?> rejectBooking(@PathVariable UUID id) {
+        Optional<Booking> opt = bookingRepository.findById(id);
+        if (opt.isEmpty()) return ResponseEntity.notFound().build();
+        Booking b = opt.get();
+        b.setStatus(Booking.BookingStatus.REJECTED);
+        return ResponseEntity.ok(bookingRepository.save(b));
+    }
+
+    @GetMapping("/by-listings")
+    public List<Booking> getByListings(@RequestParam List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        return bookingRepository.findByListingIdIn(ids);
     }
 }

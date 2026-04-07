@@ -12,6 +12,6 @@ public class ListingRequest {
     private String title;
     private String description;
     private String location;
-    private BigDecimal pricePerMonth;
+    private BigDecimal pricePerNight;
     private Listing.ListingType type;
 }

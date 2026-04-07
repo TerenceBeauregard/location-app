@@ -33,8 +33,8 @@ public class Listing {
 
     private String location;
 
-    @Column(name = "price_per_month", precision = 10, scale = 2)
-    private BigDecimal pricePerMonth;
+    @Column(name = "price_per_night", precision = 10, scale = 2)
+    private BigDecimal pricePerNight;
 
     @Enumerated(EnumType.STRING)
     private ListingType type;

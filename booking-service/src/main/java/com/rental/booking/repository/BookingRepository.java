@@ -15,6 +15,8 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     List<Booking> findByTenantId(UUID tenantId);
 
+    List<Booking> findByListingIdIn(List<UUID> listingIds);
+
     @Query("""
         SELECT COUNT(b) > 0 FROM Booking b
         WHERE b.listingId = :listingId

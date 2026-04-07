@@ -105,7 +105,7 @@ function AppShell() {
                 <NavLink to="/">Home</NavLink>
                 <NavLink to="/listings">Listings</NavLink>
                 {user?.role === 'OWNER' && <NavLink to="/my-listings">My Properties</NavLink>}
-                {user && <NavLink to="/my-bookings">My Bookings</NavLink>}
+                {user && <NavLink to="/my-requests">Mes demandes</NavLink>}
               </div>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:items-center space-x-3">
@@ -141,6 +141,7 @@ function AppShell() {
           <Route path="/listings" element={<Listings />} />
           <Route path="/my-listings" element={<OwnerDashboard />} />
           <Route path="/my-bookings" element={<MyBookings />} />
+          <Route path="/my-requests" element={<MyRequests />} />
         </Routes>
       </main>
     </div>
@@ -286,11 +287,11 @@ function Listings() {
             placeholder="City, neighborhood…" className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>Min price (€/mo)</label>
+          <label className={labelClass}>Prix min (€/nuit)</label>
           <input type="number" min="0" value={filters.minPrice} onChange={e => setFilters(f => ({ ...f, minPrice: e.target.value }))} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>Max price (€/mo)</label>
+          <label className={labelClass}>Prix max (€/nuit)</label>
           <input type="number" min="0" value={filters.maxPrice} onChange={e => setFilters(f => ({ ...f, maxPrice: e.target.value }))} className={inputClass} />
         </div>
         <div className="flex gap-2">
@@ -337,8 +338,8 @@ function ListingCard({ listing }) {
 
       <div className="px-5 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
         <span className="text-indigo-600 dark:text-indigo-400 font-bold text-lg">
-          {listing.pricePerMonth != null ? `${Number(listing.pricePerMonth).toLocaleString('fr-FR')} €` : '—'}
-          <span className="text-sm font-normal text-gray-400"> /mo</span>
+          {listing.pricePerNight != null ? `${Number(listing.pricePerNight).toLocaleString('fr-FR')} €` : '—'}
+          <span className="text-sm font-normal text-gray-400"> /nuit</span>
         </span>
         {user?.role === 'TENANT' && (
           <button onClick={() => setShowBooking(v => !v)}
@@ -375,8 +376,8 @@ function BookingPanel({ listing, onClose }) {
   const nights = startDate && endDate
     ? Math.round((new Date(endDate) - new Date(startDate)) / 86400000)
     : 0
-  const total = nights > 0 && listing.pricePerMonth
-    ? ((Number(listing.pricePerMonth) / 30) * nights).toFixed(2)
+  const total = nights > 0 && listing.pricePerNight
+    ? (Number(listing.pricePerNight) * nights).toFixed(2)
     : null
 
   const activeBookings = bookings?.filter(b => b.status === 'PENDING' || b.status === 'CONFIRMED') ?? []
@@ -443,7 +444,7 @@ function BookingPanel({ listing, onClose }) {
 
         {total && (
           <div className="bg-white dark:bg-gray-800 rounded-md px-3 py-2 text-sm flex justify-between">
-            <span className="text-gray-600 dark:text-gray-400">{nights} night{nights > 1 ? 's' : ''} × {(Number(listing.pricePerMonth) / 30).toFixed(0)} €/night</span>
+            <span className="text-gray-600 dark:text-gray-400">{nights} nuit{nights > 1 ? 's' : ''} × {Number(listing.pricePerNight).toLocaleString('fr-FR')} €/nuit</span>
             <span className="font-bold text-indigo-600 dark:text-indigo-400">{Number(total).toLocaleString('fr-FR')} €</span>
           </div>
         )}
@@ -519,6 +520,181 @@ function MyBookings() {
   )
 }
 
+// --- Mes demandes (Tenant + Owner) ---
+function MyRequests() {
+  const { user } = useAuth()
+  if (!user) return <Navigate to="/login" replace />
+  if (user.role === 'OWNER') return <OwnerRequests />
+  return <TenantRequests />
+}
+
+function TenantRequests() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  const { data: bookings, isLoading } = useQuery({
+    queryKey: ['my-bookings', user?.userId],
+    queryFn: () => apiFetch(`/booking-service/bookings/tenant/${user.userId}`),
+    enabled: !!user?.userId,
+  })
+
+  const cancelMutation = useMutation({
+    mutationFn: (id) => apiFetch(`/booking-service/bookings/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookings'] }),
+  })
+
+  const statusColors = {
+    PENDING:   'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+    CONFIRMED: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    REJECTED:  'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    CANCELLED: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
+  }
+
+  return (
+    <div>
+      <h2 className="text-3xl font-extrabold mb-2">Mes demandes</h2>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Vos réservations et leur statut</p>
+      {isLoading && <div className="text-center text-gray-400">Chargement…</div>}
+      {!isLoading && bookings?.length === 0 && (
+        <p className="text-gray-500 dark:text-gray-400 text-center mt-12">
+          Aucune demande pour l'instant. <Link to="/listings" className="text-indigo-600 dark:text-indigo-400 hover:underline">Parcourir les annonces</Link>
+        </p>
+      )}
+      <div className="space-y-4">
+        {bookings?.map(b => (
+          <div key={b.id} className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg px-5 py-4 flex items-center justify-between gap-4 transition-colors">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[b.status]}`}>{b.status}</span>
+                <span className="text-xs text-gray-400 truncate">#{b.id.slice(0, 8)}</span>
+              </div>
+              <p className="text-sm font-medium">{b.startDate} <span className="text-gray-400">→</span> {b.endDate}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Logement : {b.listingId.slice(0, 8)}…</p>
+            </div>
+            {(b.status === 'PENDING' || b.status === 'CONFIRMED') && (
+              <button onClick={() => cancelMutation.mutate(b.id)} disabled={cancelMutation.isPending}
+                className="shrink-0 text-sm text-red-500 hover:text-red-700 dark:text-red-400 font-medium disabled:opacity-50 transition-colors">
+                Annuler
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function OwnerRequests() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  const { data: listings, isLoading: listingsLoading } = useQuery({
+    queryKey: ['my-listings', user?.userId],
+    queryFn: () => apiFetch(`/listing-service/listings/owner/${user.userId}`),
+    enabled: !!user?.userId,
+  })
+
+  const listingIds = listings?.map(l => l.id) ?? []
+  const listingMap = Object.fromEntries(listings?.map(l => [l.id, l]) ?? [])
+
+  const { data: bookings, isLoading: bookingsLoading } = useQuery({
+    queryKey: ['owner-requests', listingIds],
+    queryFn: () => {
+      const qs = listingIds.map(id => `ids=${id}`).join('&')
+      return apiFetch(`/booking-service/bookings/by-listings?${qs}`)
+    },
+    enabled: listingIds.length > 0,
+  })
+
+  const confirmMutation = useMutation({
+    mutationFn: (id) => apiFetch(`/booking-service/bookings/${id}/confirm`, { method: 'PUT' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['owner-requests'] }),
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: (id) => apiFetch(`/booking-service/bookings/${id}/reject`, { method: 'PUT' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['owner-requests'] }),
+  })
+
+  const statusColors = {
+    PENDING:   'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+    CONFIRMED: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    REJECTED:  'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    CANCELLED: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
+  }
+
+  const isLoading = listingsLoading || (listingIds.length > 0 && bookingsLoading)
+
+  const sortedBookings = [...(bookings ?? [])].sort((a, b) => {
+    const order = { PENDING: 0, CONFIRMED: 1, REJECTED: 2, CANCELLED: 3 }
+    return (order[a.status] ?? 9) - (order[b.status] ?? 9)
+  })
+
+  return (
+    <div>
+      <h2 className="text-3xl font-extrabold mb-2">Mes demandes</h2>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Demandes de réservation reçues sur vos logements</p>
+
+      {isLoading && <div className="text-center text-gray-400">Chargement…</div>}
+
+      {!isLoading && listingIds.length === 0 && (
+        <p className="text-gray-500 dark:text-gray-400 text-center mt-12">
+          Vous n'avez aucun logement publié. <Link to="/my-listings" className="text-indigo-600 dark:text-indigo-400 hover:underline">Ajouter un logement</Link>
+        </p>
+      )}
+
+      {!isLoading && listingIds.length > 0 && sortedBookings.length === 0 && (
+        <p className="text-gray-500 dark:text-gray-400 text-center mt-12">Aucune demande reçue pour l'instant.</p>
+      )}
+
+      <div className="space-y-4">
+        {sortedBookings.map(b => {
+          const listing = listingMap[b.listingId]
+          return (
+            <div key={b.id} className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg px-5 py-4 transition-colors">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[b.status]}`}>{b.status}</span>
+                    {listing && (
+                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{listing.title}</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-medium">{b.startDate} <span className="text-gray-400">→</span> {b.endDate}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Locataire : <span className="font-mono">{b.tenantId.slice(0, 8)}…</span>
+                    {listing?.pricePerNight && (() => {
+                      const nights = Math.round((new Date(b.endDate) - new Date(b.startDate)) / 86400000)
+                      const total = (Number(listing.pricePerNight) * nights).toFixed(2)
+                      return <span className="ml-2 text-indigo-600 dark:text-indigo-400 font-medium">{nights} nuit{nights > 1 ? 's' : ''} — {Number(total).toLocaleString('fr-FR')} €</span>
+                    })()}
+                  </p>
+                </div>
+                {b.status === 'PENDING' && (
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => confirmMutation.mutate(b.id)}
+                      disabled={confirmMutation.isPending || rejectMutation.isPending}
+                      className="px-3 py-1.5 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 transition-colors">
+                      Confirmer
+                    </button>
+                    <button
+                      onClick={() => rejectMutation.mutate(b.id)}
+                      disabled={confirmMutation.isPending || rejectMutation.isPending}
+                      className="px-3 py-1.5 text-sm font-medium bg-red-500 hover:bg-red-600 text-white rounded-md disabled:opacity-50 transition-colors">
+                      Refuser
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // --- Owner Dashboard ---
 function OwnerDashboard() {
   const { user } = useAuth()
@@ -540,7 +716,7 @@ function OwnerDashboard() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['my-listings'] }); qc.invalidateQueries({ queryKey: ['listings'] }) },
   })
 
-  const [form, setForm] = useState({ title: '', description: '', location: '', pricePerMonth: '', type: 'APARTMENT' })
+  const [form, setForm] = useState({ title: '', description: '', location: '', pricePerNight: '', type: 'APARTMENT' })
   const [formError, setFormError] = useState(null)
   const [showForm, setShowForm] = useState(false)
 
@@ -555,10 +731,10 @@ function OwnerDashboard() {
         title: form.title,
         description: form.description || null,
         location: form.location || null,
-        pricePerMonth: form.pricePerMonth ? Number(form.pricePerMonth) : null,
+        pricePerNight: form.pricePerNight ? Number(form.pricePerNight) : null,
         type: form.type,
       })
-      setForm({ title: '', description: '', location: '', pricePerMonth: '', type: 'APARTMENT' })
+      setForm({ title: '', description: '', location: '', pricePerNight: '', type: 'APARTMENT' })
       setShowForm(false)
     } catch (err) { setFormError(err.message) }
   }
@@ -587,8 +763,8 @@ function OwnerDashboard() {
               <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Price per month (€)</label>
-              <input type="number" min="0" step="0.01" value={form.pricePerMonth} onChange={e => setForm(f => ({ ...f, pricePerMonth: e.target.value }))} className={inputClass} />
+              <label className={labelClass}>Prix par nuit (€)</label>
+              <input type="number" min="0" step="0.01" value={form.pricePerNight} onChange={e => setForm(f => ({ ...f, pricePerNight: e.target.value }))} className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>Type</label>
@@ -634,7 +810,7 @@ function OwnerDashboard() {
             </div>
             <div className="px-5 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <span className="text-indigo-600 dark:text-indigo-400 font-bold">
-                {listing.pricePerMonth != null ? `${Number(listing.pricePerMonth).toLocaleString('fr-FR')} €/mo` : '—'}
+                {listing.pricePerNight != null ? `${Number(listing.pricePerNight).toLocaleString('fr-FR')} €/nuit` : '—'}
               </span>
               <button onClick={() => deleteMutation.mutate(listing.id)} disabled={deleteMutation.isPending}
                 className="text-red-500 hover:text-red-700 dark:text-red-400 text-sm font-medium disabled:opacity-50 transition-colors">
