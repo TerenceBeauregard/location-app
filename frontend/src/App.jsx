@@ -178,19 +178,52 @@ function AppShell() {
 // --- Home ---
 function Home() {
   const { user } = useAuth()
+
+  const { data: allListings, isLoading } = useQuery({
+    queryKey: ['listings', {}],
+    queryFn: () => apiFetch('/listing-service/listings'),
+  })
+
+  const recentListings = allListings ? [...allListings].reverse().slice(0, 6) : []
+
   return (
-    <div className="text-center mt-20">
-      <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl">
-        <span className="block xl:inline">Trouvez votre prochain</span>{' '}
-        <span className="block text-indigo-600 dark:text-indigo-400 xl:inline">logement idéal</span>
-      </h1>
-      <p className="mt-3 max-w-md mx-auto text-base text-gray-500 dark:text-gray-400 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-        La plateforme de location de logements propulsée par une architecture microservices.
-      </p>
-      <div className="mt-8 flex justify-center gap-4 flex-wrap">
-        <Link to="/listings" className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-colors">Voir les annonces</Link>
-        {!user && <Link to="/register" className="border border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 px-6 py-3 rounded-md font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">Commencer</Link>}
-        {user?.role === 'OWNER' && <Link to="/my-listings" className="border border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 px-6 py-3 rounded-md font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">Gérer mes logements</Link>}
+    <div>
+      {/* Hero */}
+      <div className="text-center py-20">
+        <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl">
+          <span className="block xl:inline">Trouvez votre prochain</span>{' '}
+          <span className="block text-indigo-600 dark:text-indigo-400 xl:inline">logement idéal</span>
+        </h1>
+        <p className="mt-4 max-w-2xl mx-auto text-base text-gray-500 dark:text-gray-400 sm:text-lg md:text-xl">
+          La plateforme de location de logements propulsée par une architecture microservices.
+        </p>
+        <div className="mt-8 flex justify-center gap-4 flex-wrap">
+          <Link to="/listings" className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-semibold transition-colors">Voir toutes les annonces</Link>
+          {!user && <Link to="/register" className="border border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 px-6 py-3 rounded-md font-semibold hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">Commencer</Link>}
+          {user?.role === 'OWNER' && <Link to="/my-listings" className="border border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 px-6 py-3 rounded-md font-semibold hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">Gérer mes logements</Link>}
+        </div>
+      </div>
+
+      {/* Dernières annonces */}
+      <div className="mt-4">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold">Dernières annonces</h2>
+          <Link to="/listings" className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline">Voir tout →</Link>
+        </div>
+
+        {isLoading && (
+          <div className="text-center py-12 text-gray-400">Chargement des annonces...</div>
+        )}
+
+        {!isLoading && recentListings.length === 0 && (
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+            Aucune annonce disponible pour le moment.
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {recentListings.map(listing => <ListingCard key={listing.id} listing={listing} />)}
+        </div>
       </div>
     </div>
   )
