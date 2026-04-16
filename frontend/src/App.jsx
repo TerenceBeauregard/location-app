@@ -1,6 +1,11 @@
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, createContext, useContext, useEffect, useRef } from 'react'
+import DatePicker, { registerLocale } from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
+import { fr } from 'date-fns/locale/fr'
+
+registerLocale('fr', fr)
 
 const queryClient = new QueryClient()
 
@@ -143,7 +148,7 @@ function AppShell() {
               {user ? (
                 <>
                   <span className="text-sm text-gray-600 dark:text-gray-300">
-                    {user.email} <span className="text-xs text-indigo-500 font-medium">({user.role})</span>
+                    {user.email} <span className="text-xs text-indigo-500 font-medium">({user.role === 'OWNER' ? 'Propriétaire' : 'Locataire'})</span>
                   </span>
                   <button onClick={() => { logout(); navigate('/') }}
                     className="border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-md text-sm text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
@@ -377,12 +382,12 @@ function Listings() {
 }
 
 // --- Listing card with booking panel ---
-function ListingCard({ listing }) {
+  function ListingCard({ listing }) {
   const { user } = useAuth()
   const [showBooking, setShowBooking] = useState(false)
 
   return (
-    <div className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg flex flex-col overflow-hidden transition-colors">
+    <div className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg flex flex-col overflow-hidden transition-all duration-300">
       {listing.imageUrl ? (
         <img src={listing.imageUrl} alt={listing.title} className="h-44 w-full object-cover" />
       ) : (
@@ -427,10 +432,11 @@ function ListingCard({ listing }) {
 function BookingPanel({ listing, onClose }) {
   const { user } = useAuth()
   const qc = useQueryClient()
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
 
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [startDate, setStartDate] = useState(null)
+  const [endDate, setEndDate] = useState(null)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
 
@@ -440,13 +446,24 @@ function BookingPanel({ listing, onClose }) {
   })
 
   const nights = startDate && endDate
-    ? Math.round((new Date(endDate) - new Date(startDate)) / 86400000)
+    ? Math.round((endDate - startDate) / 86400000)
     : 0
   const total = nights > 0 && listing.pricePerNight
     ? (Number(listing.pricePerNight) * nights).toFixed(2)
     : null
 
   const activeBookings = bookings?.filter(b => b.status === 'PENDING' || b.status === 'CONFIRMED') ?? []
+
+  // Exclude all dates that fall inside an active booking
+  const excludeDates = []
+  activeBookings.forEach(b => {
+    let current = new Date(b.startDate)
+    const end = new Date(b.endDate)
+    while (current <= end) {
+      excludeDates.push(new Date(current))
+      current.setDate(current.getDate() + 1)
+    }
+  })
 
   const mutation = useMutation({
     mutationFn: (body) => apiFetch('/booking-service/bookings', { method: 'POST', body: JSON.stringify(body) }),
@@ -461,7 +478,17 @@ function BookingPanel({ listing, onClose }) {
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
-    mutation.mutate({ listingId: listing.id, tenantId: user.userId, startDate, endDate })
+    const startStr = startDate.toISOString().split('T')[0]
+    const endStr = endDate.toISOString().split('T')[0]
+
+    // Check if range contains any excluded dates
+    const overlap = excludeDates.some(d => d >= startDate && d <= endDate)
+    if (overlap) {
+      setError("Les dates sélectionnées incluent des jours déjà réservés.")
+      return
+    }
+
+    mutation.mutate({ listingId: listing.id, tenantId: user.userId, startDate: startStr, endDate: endStr })
   }
 
   if (success) {
@@ -477,34 +504,40 @@ function BookingPanel({ listing, onClose }) {
     <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/10">
       <h4 className="font-semibold text-sm mb-3">Réserver ce logement</h4>
 
-      {activeBookings.length > 0 && (
-        <div className="mb-3">
-          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Déjà réservé :</p>
-          <div className="flex flex-col gap-1">
-            {activeBookings.map(b => (
-              <span key={b.id} className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2 py-0.5 rounded-full w-fit">
-                {b.startDate} → {b.endDate}
-                <span className="ml-1 opacity-60">({b.status})</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
       <ErrorMsg msg={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Arrivée</label>
-            <input type="date" required min={today} value={startDate}
-              onChange={e => { setStartDate(e.target.value); if (endDate && e.target.value >= endDate) setEndDate('') }}
-              className={inputClass} />
+            <DatePicker
+              selected={startDate}
+              onChange={(date) => { setStartDate(date); if (endDate && date >= endDate) setEndDate(null); setError(null) }}
+              selectsStart
+              startDate={startDate}
+              endDate={endDate}
+              minDate={today}
+              excludeDates={excludeDates}
+              dateFormat="dd/MM/yyyy"
+              className={inputClass}
+              placeholderText="Ajouter une date"
+              locale="fr"
+            />
           </div>
           <div>
             <label className={labelClass}>Départ</label>
-            <input type="date" required min={startDate || today} value={endDate}
-              onChange={e => setEndDate(e.target.value)}
-              className={inputClass} />
+            <DatePicker
+              selected={endDate}
+              onChange={(date) => { setEndDate(date); setError(null) }}
+              selectsEnd
+              startDate={startDate}
+              endDate={endDate}
+              minDate={startDate || today}
+              excludeDates={excludeDates}
+              dateFormat="dd/MM/yyyy"
+              className={inputClass}
+              placeholderText="Ajouter une date"
+              locale="fr"
+            />
           </div>
         </div>
 
@@ -597,12 +630,23 @@ function MyRequests() {
 function TenantRequests() {
   const { user } = useAuth()
   const qc = useQueryClient()
+  const [statusFilter, setStatusFilter] = useState('ALL')
 
+  // 1) Fetch all user bookings
   const { data: bookings, isLoading } = useQuery({
     queryKey: ['my-bookings', user?.userId],
     queryFn: () => apiFetch(`/booking-service/bookings/tenant/${user.userId}`),
     enabled: !!user?.userId,
   })
+
+  // 2) Fetch ALL listings (to map their title easily)
+  const { data: listings } = useQuery({
+    queryKey: ['listings', 'all-for-tenant'],
+    queryFn: () => apiFetch('/listing-service/listings'),
+    enabled: !!bookings && bookings.length > 0, // Only fetch them if we have some bookings
+  })
+
+  const listingsMap = listings ? Object.fromEntries(listings.map(l => [l.id, l])) : {}
 
   const cancelMutation = useMutation({
     mutationFn: (id) => apiFetch(`/booking-service/bookings/${id}`, { method: 'DELETE' }),
@@ -616,10 +660,36 @@ function TenantRequests() {
     CANCELLED: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
   }
 
+  const sortedBookings = [...(bookings ?? [])]
+    .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+    .filter(b => statusFilter === 'ALL' || b.status === statusFilter)
+
   return (
     <div>
       <h2 className="text-3xl font-extrabold mb-2">Mes demandes</h2>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Vos réservations et leur statut</p>
+      
+      {bookings?.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {[
+            { id: 'ALL', label: 'Toutes' },
+            { id: 'PENDING', label: 'En attente' },
+            { id: 'CONFIRMED', label: 'Confirmées' },
+            { id: 'REJECTED', label: 'Refusées' },
+            { id: 'CANCELLED', label: 'Annulées' }
+          ].map(s => (
+            <button key={s.id} onClick={() => setStatusFilter(s.id)}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                statusFilter === s.id 
+                  ? 'bg-indigo-600 text-white shadow-sm' 
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {isLoading && <div className="text-center text-gray-400">Chargement...</div>}
       {!isLoading && bookings?.length === 0 && (
         <p className="text-gray-500 dark:text-gray-400 text-center mt-12">
@@ -627,24 +697,53 @@ function TenantRequests() {
         </p>
       )}
       <div className="space-y-4">
-        {bookings?.map(b => (
-          <div key={b.id} className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg px-5 py-4 flex items-center justify-between gap-4 transition-colors">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[b.status]}`}>{b.status}</span>
-                <span className="text-xs text-gray-400 truncate">#{b.id.slice(0, 8)}</span>
+        {sortedBookings.map(b => {
+          const listing = listingsMap[b.listingId]
+          const isListingLoaded = listings != null
+          return (
+            <div key={b.id} className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg overflow-hidden flex flex-col sm:flex-row transition-colors h-auto">
+               {isListingLoaded && (
+                  <div className="w-full sm:w-32 h-32 sm:h-auto shrink-0">
+                    {listing?.imageUrl ? (
+                      <img src={listing.imageUrl} alt={listing.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
+                        <span className="text-gray-400 font-medium text-xs">
+                          {listing ? (typeLabels[listing.type] || 'Logement') : 'Indisponible'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+               )}
+              <div className="flex-1 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[b.status]}`}>{b.status}</span>
+                    <span className="text-xs text-gray-400 truncate hidden sm:inline">#{b.id.slice(0, 8)}</span>
+                  </div>
+                  <h4 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-1 leading-tight">
+                    {isListingLoaded ? (listing ? listing.title : 'Logement supprimé') : 'Logement en chargement...'}
+                  </h4>
+                  {listing && listing.location && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">📍 {listing.location}</p>
+                  )}
+                  <p className="text-sm font-medium">
+                     {new Date(b.startDate).toLocaleDateString('fr-FR', { weekday:'short', day: 'numeric', month: 'short' })} 
+                     <span className="text-gray-400 mx-1">→</span> 
+                     {new Date(b.endDate).toLocaleDateString('fr-FR', { weekday:'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                  {listing && (<p className="text-xs font-medium mt-1 text-indigo-600 dark:text-indigo-400">Total : {(Math.round((new Date(b.endDate) - new Date(b.startDate))/86400000) * Number(listing.pricePerNight)).toLocaleString('fr-FR')} €</p>)}
+                </div>
+                {(b.status === 'PENDING' || b.status === 'CONFIRMED') && (
+                  <button onClick={() => cancelMutation.mutate(b.id)} disabled={cancelMutation.isPending}
+                    className="shrink-0 text-sm border border-red-200 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white dark:bg-red-900/20 dark:border-red-800 dark:hover:bg-red-700 px-3 py-1.5 rounded-md font-medium disabled:opacity-50 transition-colors">
+                    Annuler la demande
+                  </button>
+                )}
               </div>
-              <p className="text-sm font-medium">{b.startDate} <span className="text-gray-400">→</span> {b.endDate}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Logement : {b.listingId.slice(0, 8)}…</p>
             </div>
-            {(b.status === 'PENDING' || b.status === 'CONFIRMED') && (
-              <button onClick={() => cancelMutation.mutate(b.id)} disabled={cancelMutation.isPending}
-                className="shrink-0 text-sm text-red-500 hover:text-red-700 dark:text-red-400 font-medium disabled:opacity-50 transition-colors">
-                Annuler
-              </button>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
@@ -653,6 +752,7 @@ function TenantRequests() {
 function OwnerRequests() {
   const { user } = useAuth()
   const qc = useQueryClient()
+  const [statusFilter, setStatusFilter] = useState('ALL')
 
   const { data: listings, isLoading: listingsLoading } = useQuery({
     queryKey: ['my-listings', user?.userId],
@@ -694,12 +794,33 @@ function OwnerRequests() {
   const sortedBookings = [...(bookings ?? [])].sort((a, b) => {
     const order = { PENDING: 0, CONFIRMED: 1, REJECTED: 2, CANCELLED: 3 }
     return (order[a.status] ?? 9) - (order[b.status] ?? 9)
-  })
+  }).filter(b => statusFilter === 'ALL' || b.status === statusFilter)
 
   return (
     <div>
       <h2 className="text-3xl font-extrabold mb-2">Mes demandes</h2>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Demandes de réservation reçues sur vos logements</p>
+
+      {bookings?.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {[
+            { id: 'ALL', label: 'Toutes' },
+            { id: 'PENDING', label: 'En attente' },
+            { id: 'CONFIRMED', label: 'Confirmées' },
+            { id: 'REJECTED', label: 'Refusées' },
+            { id: 'CANCELLED', label: 'Annulées' }
+          ].map(s => (
+            <button key={s.id} onClick={() => setStatusFilter(s.id)}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                statusFilter === s.id 
+                  ? 'bg-indigo-600 text-white shadow-sm' 
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isLoading && <div className="text-center text-gray-400">Chargement...</div>}
 
@@ -716,18 +837,40 @@ function OwnerRequests() {
       <div className="space-y-4">
         {sortedBookings.map(b => {
           const listing = listingMap[b.listingId]
+          const isListingLoaded = listings != null
           return (
-            <div key={b.id} className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg px-5 py-4 transition-colors">
-              <div className="flex items-start justify-between gap-4">
+            <div key={b.id} className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg overflow-hidden flex flex-col sm:flex-row transition-colors h-auto">
+               {isListingLoaded && (
+                  <div className="w-full sm:w-32 h-32 sm:h-auto shrink-0">
+                    {listing?.imageUrl ? (
+                      <img src={listing.imageUrl} alt={listing.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
+                        <span className="text-gray-400 font-medium text-xs text-center px-2">
+                          {listing ? (typeLabels[listing.type] || 'Logement') : 'Indisponible'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+               )}
+              <div className="flex-1 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[b.status]}`}>{b.status}</span>
-                    {listing && (
-                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{listing.title}</span>
-                    )}
+                    <span className="text-xs text-gray-400 truncate hidden sm:inline">Demande #{b.id.slice(0, 8)}</span>
                   </div>
-                  <p className="text-sm font-medium">{b.startDate} <span className="text-gray-400">→</span> {b.endDate}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <h4 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-1 leading-tight">
+                    {isListingLoaded ? (listing ? listing.title : 'Logement supprimé') : 'Logement en chargement...'}
+                  </h4>
+                  {listing && listing.location && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">📍 {listing.location}</p>
+                  )}
+                  <p className="text-sm font-medium">
+                     {new Date(b.startDate).toLocaleDateString('fr-FR', { weekday:'short', day: 'numeric', month: 'short' })} 
+                     <span className="text-gray-400 mx-1">→</span> 
+                     {new Date(b.endDate).toLocaleDateString('fr-FR', { weekday:'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
                     Locataire : <span className="font-mono">{b.tenantId.slice(0, 8)}…</span>
                     {listing?.pricePerNight && (() => {
                       const nights = Math.round((new Date(b.endDate) - new Date(b.startDate)) / 86400000)
@@ -778,7 +921,10 @@ function OwnerDashboard() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => apiFetch(`/listing-service/listings/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id) => {
+      await apiFetch(`/booking-service/bookings/listing/${id}`, { method: 'DELETE' });
+      return apiFetch(`/listing-service/listings/${id}`, { method: 'DELETE' });
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['my-listings'] }); qc.invalidateQueries({ queryKey: ['listings'] }) },
   })
 

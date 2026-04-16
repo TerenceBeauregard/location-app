@@ -9,7 +9,14 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.transaction.annotation.Transactional;
+
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
+
+    @Modifying
+    @Transactional
+    void deleteByListingId(UUID listingId);
 
     List<Booking> findByListingId(UUID listingId);
 

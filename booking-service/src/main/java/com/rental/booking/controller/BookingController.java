@@ -57,6 +57,12 @@ public class BookingController {
         return bookingRepository.findByTenantId(tenantId);
     }
 
+    @DeleteMapping("/listing/{listingId}")
+    public ResponseEntity<Void> cancelBookingsByListing(@PathVariable UUID listingId) {
+        bookingRepository.deleteByListingId(listingId);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> cancelBooking(@PathVariable UUID id) {
         bookingRepository.findById(id).ifPresent(b -> {
