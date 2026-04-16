@@ -33,6 +33,9 @@ public class Listing {
 
     private String location;
 
+    @Column(name = "image_url", columnDefinition = "TEXT")
+    private String imageUrl;
+
     @Column(name = "price_per_night", precision = 10, scale = 2)
     private BigDecimal pricePerNight;
 

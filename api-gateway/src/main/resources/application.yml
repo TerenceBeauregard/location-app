@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: api-gateway
+  codec:
+    max-in-memory-size: 20MB
   config:
     import: "optional:configserver:http://config-server:8888"
   cloud:

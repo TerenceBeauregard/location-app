@@ -53,6 +53,7 @@ public class ListingController {
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .location(request.getLocation())
+                .imageUrl(request.getImageUrl())
                 .pricePerNight(request.getPricePerNight())
                 .type(request.getType())
                 .available(true)

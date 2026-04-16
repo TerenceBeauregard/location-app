@@ -126,7 +126,7 @@ function AppShell() {
           <div className="flex justify-between h-16">
             <div className="flex space-x-8">
               <div className="flex-shrink-0 flex items-center">
-                <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">RentalApp</span>
+                <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">R&B</span>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                 <NavLink to="/">Accueil</NavLink>
@@ -382,8 +382,12 @@ function ListingCard({ listing }) {
   const [showBooking, setShowBooking] = useState(false)
 
   return (
-    <div className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg flex flex-col transition-colors">
-      <ListingPlaceholderImage type={listing.type} />
+    <div className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg flex flex-col overflow-hidden transition-colors">
+      {listing.imageUrl ? (
+        <img src={listing.imageUrl} alt={listing.title} className="h-44 w-full object-cover" />
+      ) : (
+        <ListingPlaceholderImage type={listing.type} />
+      )}
 
       <div className="px-5 py-4 flex-1">
         <div className="flex items-start justify-between mb-2">
@@ -779,24 +783,39 @@ function OwnerDashboard() {
   })
 
   const [form, setForm] = useState({ title: '', description: '', location: '', pricePerNight: '', type: 'APARTMENT' })
+  const [imageFile, setImageFile] = useState(null)
   const [formError, setFormError] = useState(null)
   const [showForm, setShowForm] = useState(false)
 
   if (!user) return <Navigate to="/login" replace />
   if (user.role !== 'OWNER') return <Navigate to="/" replace />
 
+  const toBase64 = file => new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = error => reject(error)
+  })
+
   async function handleCreate(e) {
     e.preventDefault(); setFormError(null)
     try {
+      let base64Image = null
+      if (imageFile) {
+        base64Image = await toBase64(imageFile)
+      }
+
       await createMutation.mutateAsync({
         ownerId: user.userId,
         title: form.title,
         description: form.description || null,
         location: form.location || null,
+        imageUrl: base64Image || null,
         pricePerNight: form.pricePerNight ? Number(form.pricePerNight) : null,
         type: form.type,
       })
       setForm({ title: '', description: '', location: '', pricePerNight: '', type: 'APARTMENT' })
+      setImageFile(null)
       setShowForm(false)
     } catch (err) { setFormError(err.message) }
   }
@@ -827,6 +846,10 @@ function OwnerDashboard() {
             <div>
               <label className={labelClass}>Prix par nuit (€)</label>
               <input type="number" min="0" step="0.01" value={form.pricePerNight} onChange={e => setForm(f => ({ ...f, pricePerNight: e.target.value }))} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Image du logement</label>
+              <input type="file" accept="image/*" onChange={e => { if (e.target.files.length > 0) setImageFile(e.target.files[0]) }} className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>Type</label>
@@ -861,8 +884,12 @@ function OwnerDashboard() {
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {listings?.map(listing => (
-          <div key={listing.id} className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg flex flex-col transition-colors">
-            <ListingPlaceholderImage type={listing.type} />
+          <div key={listing.id} className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg flex flex-col overflow-hidden transition-colors">
+            {listing.imageUrl ? (
+              <img src={listing.imageUrl} alt={listing.title} className="h-44 w-full object-cover" />
+            ) : (
+              <ListingPlaceholderImage type={listing.type} />
+            )}
             <div className="px-5 py-4 flex-1">
               <div className="flex items-start justify-between mb-1">
                 <h3 className="text-base font-semibold">{listing.title}</h3>
