@@ -38,7 +38,7 @@ async function apiFetch(path, options = {}) {
   const res = await fetch(`${API}${path}`, { ...options, headers })
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
-    throw new Error(data.message || `Error ${res.status}`)
+    throw new Error(data.message || `Erreur ${res.status}`)
   }
   return res.status === 204 ? null : res.json()
 }
@@ -53,6 +53,33 @@ const typeColors = {
   HOUSE:     'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
   STUDIO:    'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
   ROOM:      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+}
+
+const typeLabels = {
+  APARTMENT: 'Appartement',
+  HOUSE:     'Maison',
+  STUDIO:    'Studio',
+  ROOM:      'Chambre',
+}
+
+const typeGradients = {
+  APARTMENT: 'from-blue-400 to-blue-600',
+  HOUSE:     'from-green-400 to-green-600',
+  STUDIO:    'from-purple-400 to-purple-600',
+  ROOM:      'from-yellow-400 to-yellow-500',
+}
+
+function ListingPlaceholderImage({ type }) {
+  const gradient = typeGradients[type] || 'from-gray-400 to-gray-600'
+  return (
+    <div className={`h-44 bg-gradient-to-br ${gradient} rounded-t-lg flex flex-col items-center justify-center gap-2`}>
+      <svg xmlns="http://www.w3.org/2000/svg" className="w-14 h-14 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1H5a1 1 0 01-1-1V10.5z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 21V12h6v9" />
+      </svg>
+      <span className="text-white/70 text-xs font-medium tracking-wide uppercase">{typeLabels[type] || type}</span>
+    </div>
+  )
 }
 
 function ErrorMsg({ msg }) {
@@ -102,9 +129,9 @@ function AppShell() {
                 <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">RentalApp</span>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                <NavLink to="/">Home</NavLink>
-                <NavLink to="/listings">Listings</NavLink>
-                {user?.role === 'OWNER' && <NavLink to="/my-listings">My Properties</NavLink>}
+                <NavLink to="/">Accueil</NavLink>
+                <NavLink to="/listings">Annonces</NavLink>
+                {user?.role === 'OWNER' && <NavLink to="/my-listings">Mes logements</NavLink>}
                 {user && <NavLink to="/my-requests">Mes demandes</NavLink>}
               </div>
             </div>
@@ -120,13 +147,13 @@ function AppShell() {
                   </span>
                   <button onClick={() => { logout(); navigate('/') }}
                     className="border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-md text-sm text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                    Log out
+                    Se déconnecter
                   </button>
                 </>
               ) : (
                 <>
-                  <Link to="/register" className="border border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">Sign up</Link>
-                  <Link to="/login" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">Log in</Link>
+                  <Link to="/register" className="border border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">S'inscrire</Link>
+                  <Link to="/login" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">Se connecter</Link>
                 </>
               )}
             </div>
@@ -154,16 +181,16 @@ function Home() {
   return (
     <div className="text-center mt-20">
       <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl">
-        <span className="block xl:inline">Find your next</span>{' '}
-        <span className="block text-indigo-600 dark:text-indigo-400 xl:inline">dream home</span>
+        <span className="block xl:inline">Trouvez votre prochain</span>{' '}
+        <span className="block text-indigo-600 dark:text-indigo-400 xl:inline">logement idéal</span>
       </h1>
       <p className="mt-3 max-w-md mx-auto text-base text-gray-500 dark:text-gray-400 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-        The microservices-powered platform for renting properties around the globe.
+        La plateforme de location de logements propulsée par une architecture microservices.
       </p>
       <div className="mt-8 flex justify-center gap-4 flex-wrap">
-        <Link to="/listings" className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-colors">Browse listings</Link>
-        {!user && <Link to="/register" className="border border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 px-6 py-3 rounded-md font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">Get started</Link>}
-        {user?.role === 'OWNER' && <Link to="/my-listings" className="border border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 px-6 py-3 rounded-md font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">Manage my properties</Link>}
+        <Link to="/listings" className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-colors">Voir les annonces</Link>
+        {!user && <Link to="/register" className="border border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 px-6 py-3 rounded-md font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">Commencer</Link>}
+        {user?.role === 'OWNER' && <Link to="/my-listings" className="border border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 px-6 py-3 rounded-md font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">Gérer mes logements</Link>}
       </div>
     </div>
   )
@@ -195,14 +222,14 @@ function Login() {
   }
 
   return (
-    <AuthCard title="Sign in to your account">
+    <AuthCard title="Connexion à votre compte">
       <ErrorMsg msg={error} />
       <form className="space-y-6" onSubmit={handleSubmit}>
-        <div><label className={labelClass}>Email</label><input type="email" required value={email} onChange={e => setEmail(e.target.value)} className={inputClass} /></div>
-        <div><label className={labelClass}>Password</label><input type="password" required value={password} onChange={e => setPassword(e.target.value)} className={inputClass} /></div>
-        <button type="submit" disabled={loading} className={btnPrimary}>{loading ? 'Signing in...' : 'Sign in'}</button>
+        <div><label className={labelClass}>E-mail</label><input type="email" required value={email} onChange={e => setEmail(e.target.value)} className={inputClass} /></div>
+        <div><label className={labelClass}>Mot de passe</label><input type="password" required value={password} onChange={e => setPassword(e.target.value)} className={inputClass} /></div>
+        <button type="submit" disabled={loading} className={btnPrimary}>{loading ? 'Connexion...' : 'Se connecter'}</button>
       </form>
-      <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">No account? <Link to="/register" className="text-indigo-600 dark:text-indigo-400 font-medium">Create one</Link></p>
+      <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">Pas de compte ? <Link to="/register" className="text-indigo-600 dark:text-indigo-400 font-medium">En créer un</Link></p>
     </AuthCard>
   )
 }
@@ -221,21 +248,21 @@ function Register() {
   }
 
   return (
-    <AuthCard title="Create your account">
+    <AuthCard title="Créer votre compte">
       <ErrorMsg msg={error} />
       <form className="space-y-6" onSubmit={handleSubmit}>
-        <div><label className={labelClass}>Email</label><input type="email" required value={email} onChange={e => setEmail(e.target.value)} className={inputClass} /></div>
-        <div><label className={labelClass}>Password</label><input type="password" required value={password} onChange={e => setPassword(e.target.value)} className={inputClass} /></div>
+        <div><label className={labelClass}>E-mail</label><input type="email" required value={email} onChange={e => setEmail(e.target.value)} className={inputClass} /></div>
+        <div><label className={labelClass}>Mot de passe</label><input type="password" required value={password} onChange={e => setPassword(e.target.value)} className={inputClass} /></div>
         <div>
-          <label className={labelClass}>I am a...</label>
+          <label className={labelClass}>Je suis...</label>
           <select value={role} onChange={e => setRole(e.target.value)} className={inputClass}>
-            <option value="TENANT">Tenant — I'm looking to rent</option>
-            <option value="OWNER">Owner — I want to list my property</option>
+            <option value="TENANT">Locataire — Je cherche à louer</option>
+            <option value="OWNER">Propriétaire — Je veux mettre en location</option>
           </select>
         </div>
-        <button type="submit" disabled={loading} className={btnPrimary}>{loading ? 'Creating account...' : 'Create account'}</button>
+        <button type="submit" disabled={loading} className={btnPrimary}>{loading ? 'Création en cours...' : 'Créer un compte'}</button>
       </form>
-      <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">Already have an account? <Link to="/login" className="text-indigo-600 dark:text-indigo-400 font-medium">Sign in</Link></p>
+      <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">Déjà un compte ? <Link to="/login" className="text-indigo-600 dark:text-indigo-400 font-medium">Se connecter</Link></p>
     </AuthCard>
   )
 }
@@ -267,24 +294,24 @@ function Listings() {
 
   return (
     <div>
-      <h2 className="text-3xl font-extrabold mb-6">Available Properties</h2>
+      <h2 className="text-3xl font-extrabold mb-6">Logements disponibles</h2>
 
       {/* Filter bar */}
       <form onSubmit={handleApply} className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg p-4 mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
         <div>
           <label className={labelClass}>Type</label>
           <select value={filters.type} onChange={e => setFilters(f => ({ ...f, type: e.target.value }))} className={inputClass}>
-            <option value="">All types</option>
-            <option value="APARTMENT">Apartment</option>
-            <option value="HOUSE">House</option>
+            <option value="">Tous les types</option>
+            <option value="APARTMENT">Appartement</option>
+            <option value="HOUSE">Maison</option>
             <option value="STUDIO">Studio</option>
-            <option value="ROOM">Room</option>
+            <option value="ROOM">Chambre</option>
           </select>
         </div>
         <div>
-          <label className={labelClass}>Location</label>
+          <label className={labelClass}>Localisation</label>
           <input value={filters.location} onChange={e => setFilters(f => ({ ...f, location: e.target.value }))}
-            placeholder="City, neighborhood…" className={inputClass} />
+            placeholder="Ville, quartier..." className={inputClass} />
         </div>
         <div>
           <label className={labelClass}>Prix min (€/nuit)</label>
@@ -295,17 +322,17 @@ function Listings() {
           <input type="number" min="0" value={filters.maxPrice} onChange={e => setFilters(f => ({ ...f, maxPrice: e.target.value }))} className={inputClass} />
         </div>
         <div className="flex gap-2">
-          <button type="submit" className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-md transition-colors">Search</button>
-          <button type="button" onClick={handleReset} className="py-2 px-3 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Reset</button>
+          <button type="submit" className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-md transition-colors">Rechercher</button>
+          <button type="button" onClick={handleReset} className="py-2 px-3 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Réinitialiser</button>
         </div>
       </form>
 
-      {isLoading && <div className="text-center mt-12 text-gray-400">Loading listings…</div>}
-      {error && <div className="text-center mt-12 text-red-500">Failed to load listings: {error.message}</div>}
+      {isLoading && <div className="text-center mt-12 text-gray-400">Chargement des annonces...</div>}
+      {error && <div className="text-center mt-12 text-red-500">Erreur lors du chargement : {error.message}</div>}
       {!isLoading && listings?.length === 0 && (
         <div className="text-center mt-12 text-gray-500 dark:text-gray-400">
-          <p className="text-lg">No properties match your search.</p>
-          <button onClick={handleReset} className="mt-3 text-indigo-600 dark:text-indigo-400 hover:underline text-sm">Clear filters</button>
+          <p className="text-lg">Aucun logement ne correspond à votre recherche.</p>
+          <button onClick={handleReset} className="mt-3 text-indigo-600 dark:text-indigo-400 hover:underline text-sm">Effacer les filtres</button>
         </div>
       )}
 
@@ -323,12 +350,14 @@ function ListingCard({ listing }) {
 
   return (
     <div className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg flex flex-col transition-colors">
+      <ListingPlaceholderImage type={listing.type} />
+
       <div className="px-5 py-4 flex-1">
         <div className="flex items-start justify-between mb-2">
           <h3 className="text-lg font-semibold leading-tight">{listing.title}</h3>
           {listing.type && (
             <span className={`ml-2 shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${typeColors[listing.type] || 'bg-gray-100 text-gray-600'}`}>
-              {listing.type}
+              {typeLabels[listing.type] || listing.type}
             </span>
           )}
         </div>
@@ -344,11 +373,11 @@ function ListingCard({ listing }) {
         {user?.role === 'TENANT' && (
           <button onClick={() => setShowBooking(v => !v)}
             className="text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md transition-colors">
-            {showBooking ? 'Close' : 'Book'}
+            {showBooking ? 'Fermer' : 'Réserver'}
           </button>
         )}
         {!user && (
-          <Link to="/login" className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Login to book</Link>
+          <Link to="/login" className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Connectez-vous pour réserver</Link>
         )}
       </div>
 
@@ -401,19 +430,19 @@ function BookingPanel({ listing, onClose }) {
   if (success) {
     return (
       <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-700 bg-green-50 dark:bg-green-900/20 rounded-b-lg">
-        <p className="text-green-700 dark:text-green-400 font-medium text-sm">Booking request sent!</p>
-        <button onClick={onClose} className="mt-2 text-sm text-gray-500 hover:underline">Close</button>
+        <p className="text-green-700 dark:text-green-400 font-medium text-sm">Demande de réservation envoyée !</p>
+        <button onClick={onClose} className="mt-2 text-sm text-gray-500 hover:underline">Fermer</button>
       </div>
     )
   }
 
   return (
     <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/10">
-      <h4 className="font-semibold text-sm mb-3">Reserve this property</h4>
+      <h4 className="font-semibold text-sm mb-3">Réserver ce logement</h4>
 
       {activeBookings.length > 0 && (
         <div className="mb-3">
-          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Already booked:</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Déjà réservé :</p>
           <div className="flex flex-col gap-1">
             {activeBookings.map(b => (
               <span key={b.id} className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2 py-0.5 rounded-full w-fit">
@@ -429,13 +458,13 @@ function BookingPanel({ listing, onClose }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass}>Check-in</label>
+            <label className={labelClass}>Arrivée</label>
             <input type="date" required min={today} value={startDate}
               onChange={e => { setStartDate(e.target.value); if (endDate && e.target.value >= endDate) setEndDate('') }}
               className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Check-out</label>
+            <label className={labelClass}>Départ</label>
             <input type="date" required min={startDate || today} value={endDate}
               onChange={e => setEndDate(e.target.value)}
               className={inputClass} />
@@ -452,11 +481,11 @@ function BookingPanel({ listing, onClose }) {
         <div className="flex gap-2">
           <button type="submit" disabled={mutation.isPending || !startDate || !endDate}
             className="flex-1 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-md disabled:opacity-50 transition-colors">
-            {mutation.isPending ? 'Booking…' : 'Confirm booking'}
+            {mutation.isPending ? 'Réservation...' : 'Confirmer la réservation'}
           </button>
           <button type="button" onClick={onClose}
             className="py-2 px-3 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-            Cancel
+            Annuler
           </button>
         </div>
       </form>
@@ -491,10 +520,10 @@ function MyBookings() {
 
   return (
     <div>
-      <h2 className="text-3xl font-extrabold mb-6">My Bookings</h2>
-      {isLoading && <div className="text-center text-gray-400">Loading…</div>}
+      <h2 className="text-3xl font-extrabold mb-6">Mes réservations</h2>
+      {isLoading && <div className="text-center text-gray-400">Chargement...</div>}
       {!isLoading && bookings?.length === 0 && (
-        <p className="text-gray-500 dark:text-gray-400 text-center mt-12">No bookings yet. <Link to="/listings" className="text-indigo-600 dark:text-indigo-400 hover:underline">Browse listings</Link></p>
+        <p className="text-gray-500 dark:text-gray-400 text-center mt-12">Aucune réservation pour l'instant. <Link to="/listings" className="text-indigo-600 dark:text-indigo-400 hover:underline">Voir les annonces</Link></p>
       )}
       <div className="space-y-4">
         {bookings?.map(b => (
@@ -505,12 +534,12 @@ function MyBookings() {
                 <span className="text-xs text-gray-400 truncate">#{b.id.slice(0, 8)}</span>
               </div>
               <p className="text-sm font-medium">{b.startDate} <span className="text-gray-400">→</span> {b.endDate}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Listing: {b.listingId.slice(0, 8)}…</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Logement : {b.listingId.slice(0, 8)}…</p>
             </div>
             {(b.status === 'PENDING' || b.status === 'CONFIRMED') && (
               <button onClick={() => cancelMutation.mutate(b.id)} disabled={cancelMutation.isPending}
                 className="shrink-0 text-sm text-red-500 hover:text-red-700 dark:text-red-400 font-medium disabled:opacity-50 transition-colors">
-                Cancel
+                Annuler
               </button>
             )}
           </div>
@@ -554,7 +583,7 @@ function TenantRequests() {
     <div>
       <h2 className="text-3xl font-extrabold mb-2">Mes demandes</h2>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Vos réservations et leur statut</p>
-      {isLoading && <div className="text-center text-gray-400">Chargement…</div>}
+      {isLoading && <div className="text-center text-gray-400">Chargement...</div>}
       {!isLoading && bookings?.length === 0 && (
         <p className="text-gray-500 dark:text-gray-400 text-center mt-12">
           Aucune demande pour l'instant. <Link to="/listings" className="text-indigo-600 dark:text-indigo-400 hover:underline">Parcourir les annonces</Link>
@@ -635,7 +664,7 @@ function OwnerRequests() {
       <h2 className="text-3xl font-extrabold mb-2">Mes demandes</h2>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Demandes de réservation reçues sur vos logements</p>
 
-      {isLoading && <div className="text-center text-gray-400">Chargement…</div>}
+      {isLoading && <div className="text-center text-gray-400">Chargement...</div>}
 
       {!isLoading && listingIds.length === 0 && (
         <p className="text-gray-500 dark:text-gray-400 text-center mt-12">
@@ -742,24 +771,24 @@ function OwnerDashboard() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-3xl font-extrabold">My Properties</h2>
+        <h2 className="text-3xl font-extrabold">Mes logements</h2>
         <button onClick={() => setShowForm(v => !v)}
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
-          {showForm ? 'Cancel' : '+ Add property'}
+          {showForm ? 'Annuler' : '+ Ajouter un logement'}
         </button>
       </div>
 
       {showForm && (
         <div className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg p-6 mb-8 transition-colors">
-          <h3 className="text-lg font-semibold mb-4">New property</h3>
+          <h3 className="text-lg font-semibold mb-4">Nouveau logement</h3>
           <ErrorMsg msg={formError} />
           <form onSubmit={handleCreate} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <label className={labelClass}>Title *</label>
+              <label className={labelClass}>Titre *</label>
               <input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Location</label>
+              <label className={labelClass}>Localisation</label>
               <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} className={inputClass} />
             </div>
             <div>
@@ -769,10 +798,10 @@ function OwnerDashboard() {
             <div>
               <label className={labelClass}>Type</label>
               <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className={inputClass}>
-                <option value="APARTMENT">Apartment</option>
-                <option value="HOUSE">House</option>
+                <option value="APARTMENT">Appartement</option>
+                <option value="HOUSE">Maison</option>
                 <option value="STUDIO">Studio</option>
-                <option value="ROOM">Room</option>
+                <option value="ROOM">Chambre</option>
               </select>
             </div>
             <div className="sm:col-span-2">
@@ -782,28 +811,31 @@ function OwnerDashboard() {
             <div className="sm:col-span-2 flex justify-end">
               <button type="submit" disabled={createMutation.isPending}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md text-sm font-medium disabled:opacity-50 transition-colors">
-                {createMutation.isPending ? 'Saving…' : 'Save property'}
+                {createMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {isLoading && <div className="text-center text-gray-400">Loading…</div>}
+      {isLoading && <div className="text-center text-gray-400">Chargement...</div>}
       {!isLoading && listings?.length === 0 && (
         <div className="text-center text-gray-500 dark:text-gray-400 mt-12">
-          <p className="text-lg">No properties yet.</p>
-          <button onClick={() => setShowForm(true)} className="mt-4 text-indigo-600 dark:text-indigo-400 font-medium hover:underline">Add your first property</button>
+          <p className="text-lg">Aucun logement pour l'instant.</p>
+          <button onClick={() => setShowForm(true)} className="mt-4 text-indigo-600 dark:text-indigo-400 font-medium hover:underline">Ajouter votre premier logement</button>
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {listings?.map(listing => (
           <div key={listing.id} className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 rounded-lg flex flex-col transition-colors">
+            <ListingPlaceholderImage type={listing.type} />
             <div className="px-5 py-4 flex-1">
               <div className="flex items-start justify-between mb-1">
                 <h3 className="text-base font-semibold">{listing.title}</h3>
-                <span className={`ml-2 shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${typeColors[listing.type] || 'bg-gray-100 text-gray-600'}`}>{listing.type}</span>
+                <span className={`ml-2 shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${typeColors[listing.type] || 'bg-gray-100 text-gray-600'}`}>
+                  {typeLabels[listing.type] || listing.type}
+                </span>
               </div>
               {listing.location && <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">📍 {listing.location}</p>}
               {listing.description && <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{listing.description}</p>}
@@ -814,7 +846,7 @@ function OwnerDashboard() {
               </span>
               <button onClick={() => deleteMutation.mutate(listing.id)} disabled={deleteMutation.isPending}
                 className="text-red-500 hover:text-red-700 dark:text-red-400 text-sm font-medium disabled:opacity-50 transition-colors">
-                Delete
+                Supprimer
               </button>
             </div>
           </div>
