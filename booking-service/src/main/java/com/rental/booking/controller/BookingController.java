@@ -2,6 +2,7 @@ package com.rental.booking.controller;
 
 import com.rental.booking.dto.BookingRequest;
 import com.rental.booking.entity.Booking;
+import com.rental.booking.publisher.BookingEventPublisher;
 import com.rental.booking.repository.BookingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,6 +21,7 @@ import java.util.UUID;
 public class BookingController {
 
     private final BookingRepository bookingRepository;
+    private final BookingEventPublisher bookingEventPublisher;
 
     @PostMapping
     public ResponseEntity<?> createBooking(@RequestBody BookingRequest request) {
@@ -70,7 +72,13 @@ public class BookingController {
         if (opt.isEmpty()) return ResponseEntity.notFound().build();
         Booking b = opt.get();
         b.setStatus(Booking.BookingStatus.CONFIRMED);
-        return ResponseEntity.ok(bookingRepository.save(b));
+        Booking saved = bookingRepository.save(b);
+        bookingEventPublisher.publishBookingConfirmed(
+                saved.getId().toString(),
+                saved.getListingId().toString(),
+                saved.getTenantId().toString()
+        );
+        return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/{id}/reject")

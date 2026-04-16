@@ -2,6 +2,7 @@ package com.rental.listing.controller;
 
 import com.rental.listing.dto.ListingRequest;
 import com.rental.listing.entity.Listing;
+import com.rental.listing.publisher.ListingEventPublisher;
 import com.rental.listing.repository.ListingRepository;
 import com.rental.listing.specification.ListingSpecifications;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import java.util.UUID;
 public class ListingController {
 
     private final ListingRepository listingRepository;
+    private final ListingEventPublisher listingEventPublisher;
 
     @GetMapping
     public List<Listing> getAvailableListings(
@@ -56,7 +58,13 @@ public class ListingController {
                 .available(true)
                 .build();
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(listingRepository.save(listing));
+        Listing saved = listingRepository.save(listing);
+        listingEventPublisher.publishListingCreated(
+                saved.getId().toString(),
+                saved.getTitle(),
+                saved.getOwnerId().toString()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     @DeleteMapping("/{id}")
